@@ -71,7 +71,7 @@ function getFriendlyErrorMessage(error: any): string {
     errorMsg.includes("429") ||
     errorMsg.includes("limit")
   ) {
-    return "ただいまAI（エーアイ）がたいへん混み合っているか、1日に使える無料の回数（20回）を超えてしまったようです。すこし時間をおいてから、もう一度ボタンを押してみてね！";
+    return "ただいまAI（エーアイ）がたいへん混み合っています。すこし時間をおいてから、もう一度ボタンを押してみてね！";
   }
   
   return errorMsg;

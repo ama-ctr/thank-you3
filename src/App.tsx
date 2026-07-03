@@ -434,7 +434,7 @@ export default function App() {
 
       if (!response.ok) {
         if (response.status === 429) {
-          throw new Error("ただいまAIがたいへん混雑しています（1分間に使える回数を超えました）。");
+          throw new Error("ただいまAIがたいへん混雑しています。すこし待ってから、もういちどボタンを押してください。");
         }
         const errorData = await response.json();
         throw new Error(errorData.error || "通信エラーがおきました。");
@@ -709,7 +709,7 @@ export default function App() {
             </div>
             <div className="text-left">
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1D3A2E]">
-                お礼のことばメーカー
+                ありがとうの気持ちを伝えよう
               </h1>
               <p className="text-xs sm:text-sm text-[#6B8E7E] font-bold">
                 じゅんばんにこたえるだけで、かんたんにお礼の手紙がつくれます。

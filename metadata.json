@@ -1,5 +1,5 @@
 {
-  "name": "お礼を書くアプリ",
+  "name": "ありがとうの気持ちを伝えよう",
   "description": "相手や言葉づかい、お礼のきっかけを選んで、AIのまほうで素敵なお礼の手紙（さくぶん）を作るアプリです。",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
