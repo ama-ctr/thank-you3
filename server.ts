@@ -92,17 +92,29 @@ app.post("/api/security-check", (req, res) => {
 
 // Dynamic AI Hints Generation based on Recipient & Tone Mode (Condition 4 & Condition 2)
 app.post("/api/generate-hints", async (req, res) => {
-  const { relation, mode, step } = req.body; // step can be 'experience', 'feeling', 'help'
+  const { relation, mode, step, recipientName, experience, feeling, promiseHelp } = req.body;
   
   // Validation
   if (!relation || !mode || !step) {
     return res.status(400).json({ error: "必要な情報が足りません。" });
   }
 
-  // Safety moderation check on custom relation
+  // Safety moderation check on custom relation and other inputs
   const relationCheck = containsNgWord(relation);
   if (relationCheck.hasNg) {
     return res.status(400).json({ error: `「${relationCheck.word}」はやさしくない言葉のため、使えません。` });
+  }
+  if (recipientName && containsNgWord(recipientName).hasNg) {
+    return res.status(400).json({ error: "お名前にやさしくない言葉が入っています。" });
+  }
+  if (experience && containsNgWord(experience).hasNg) {
+    return res.status(400).json({ error: "入力内容にやさしくない言葉が入っています。" });
+  }
+  if (feeling && containsNgWord(feeling).hasNg) {
+    return res.status(400).json({ error: "入力内容にやさしくない言葉が入っています。" });
+  }
+  if (promiseHelp && containsNgWord(promiseHelp).hasNg) {
+    return res.status(400).json({ error: "入力内容にやさしくない言葉が入っています。" });
   }
 
   try {
@@ -110,50 +122,67 @@ app.post("/api/generate-hints", async (req, res) => {
     
     let prompt = "";
     if (step === "experience") {
+      const nameContext = recipientName ? `（お相手のお名前は「${recipientName}」さんです）` : "";
       prompt = `
 あなたは小学生向けの優しい作文の先生です。
-お礼を書きたい相手が「${relation}」で、全体の文章スタイルが「${mode === "keigo" ? "敬語（丁寧な表現、〜していただきました、ありがとうございます、など）" : "常態（親しい表現、〜してくれた、ありがとう、など）"}」のとき、
+お礼を書きたい相手が「${relation}」${nameContext}で、全体の文章スタイルが「${mode === "keigo" ? "敬語（丁寧な表現、〜していただきました、ありがとうございます、など）" : "常態（親しい表現、〜してくれた、ありがとう、など）"}」のとき、
 「その相手（${relation}）が自分にしてくれたことで、お礼を言いたくなるような具体的な体験」の選択肢を5個、小学生が直感的に選べるように考えてください。
 
 以下のルールを絶対に守ってください：
 1. 出力は必ず指定のJSONスキーマに従ってください。
 2. 小学生が読んでワクワクする、身近で温かい体験にしてください。
-3. 文末は必ず指定した言葉遣い（${mode === "keigo" ? "「〜していただきました」「〜してくれました」" : "「〜してくれたね」「〜してくれたよ」"}）にしてください。
+3. 文末は必ず指定した言葉遣い（${mode === "keigo" ? "「〜していただきました」「〜してくれました」" : "「〜してくれたね」「〜してくれたよ」"}）にし、必ず最後に「。」（句点）を1個つけてください。
 4. 各選択肢には、その体験にピッタリ合う「楽しい絵文字」を1個つけてください。
       `;
     } else if (step === "feeling") {
+      const expContext = experience ? `相手が自分にしてくれたこと：『${experience}』\n` : "";
       prompt = `
 あなたは小学生向けの優しい作文の先生です。
 相手が「${relation}」で、お礼のスタイルが「${mode === "keigo" ? "敬語" : "常態"}」のとき、
 「何かをしてもらったとき、自分が感じた気持ちや思ったこと」の選択肢を5個考えてください。
 
+${expContext ? `今回は特に、【${expContext.trim()}】という素敵な体験を相手にしてもらったときの気持ちであることを踏まえて考えてください。` : ""}
+
 以下のルールを絶対に守ってください：
 1. 出力は必ず指定のJSONスキーマに従ってください。
-2. 文末は指定のスタイルに合わせ、${mode === "keigo" ? "「〜で嬉しかったです」「〜と思いました」" : "「〜で嬉しかったよ」「〜と思ったよ」"}にしてください。
+2. 文末は指定のスタイルに合わせ、${mode === "keigo" ? "「〜で嬉しかったです」「〜と思いました」" : "「〜で嬉しかったよ」「〜と思ったよ」"}にし、必ず最後に「。」（句点）を1個つけてください。
 3. 各選択肢に、その気持ちにピッタリ合う「表情や感情の絵文字」を1個つけてください。
       `;
     } else if (step === "help") {
+      const expContext = experience ? `相手が自分にしてくれたこと：『${experience}』\n` : "";
+      const feelContext = feeling ? `そのときの気持ち：『${feeling}』\n` : "";
+      const historyContext = (expContext || feelContext) ? `これまでの作文内容：\n${expContext}${feelContext}` : "";
+
       prompt = `
 あなたは小学生向けの優しい作文の先生です。
 相手が「${relation}」で、お礼のスタイルが「${mode === "keigo" ? "敬語" : "常態"}」のとき、
 「お礼のあとに、これからは自分がその相手（${relation}）に対してやりたいお手伝いや、応援の言葉、約束」の選択肢を5個考えてください。
 
+${historyContext ? `これまでの内容：\n${historyContext}\n上記を踏まえて、この素晴らしい相手（${relation}）に対して恩返しやお手伝い、これからの約束としてふさわしい具体的な行動プランを考えてください。` : ""}
+
 以下のルールを絶対に守ってください：
 1. 出力は必ず指定のJSONスキーマに従ってください。
 2. 小学生が自分でできそうな、具体的で優しい行動や温かい応援にしてください。
-3. 文末は指定のスタイルに合わせ、${mode === "keigo" ? "「〜をします」「〜してくださいね」" : "「〜をするね」「〜してね」"}にしてください。
+3. 文末は指定のスタイルに合わせ、${mode === "keigo" ? "「〜をします」「〜してくださいね」" : "「〜をするね」「〜してね」"}にし、必ず最後に「。」（句点）を1個つけてください。
 4. 各選択肢に、その行動にピッタリ合う「絵文字」を1個つけてください。
       `;
     } else if (step === "thankYou") {
+      const expContext = experience ? `してくれたこと：『${experience}』\n` : "";
+      const feelContext = feeling ? `そのときの気持ち：『${feeling}』\n` : "";
+      const helpContext = promiseHelp ? `これからの約束やお手伝い：『${promiseHelp}』\n` : "";
+      const historyContext = (expContext || feelContext || helpContext) ? `これまでの作文内容：\n${expContext}${feelContext}${helpContext}` : "";
+
       prompt = `
 あなたは小学生向けの優しい作文の先生です。
 相手が「${relation}」で、お礼のスタイルが「${mode === "keigo" ? "敬語" : "常態"}」のとき、
 「さいごに、相手に一番伝えたい感謝の気持ちや、これからもよろしくね、といったお礼の結びの言葉」の選択肢を5個考えてください。
 
+${historyContext ? `これまでの内容：\n${historyContext}\nこれらを踏まえて、全体のストーリー（してくれたことや、その時の嬉しかった気持ち、これからの約束）を綺麗に締めくくる、小学生らしい心温まる「ありがとう」の言葉を考えてください。` : ""}
+
 以下のルールを絶対に守ってください：
 1. 出力は必ず指定のJSONスキーマに従ってください。
 2. 小学生が素直に「ありがとう」を表現できる、温かい言葉にしてください。
-3. 文末は指定のスタイルに合わせ、${mode === "keigo" ? "「〜本当にありがとうございます」「〜これからもよろしくお願いいたします」" : "「〜本当にありがとう」「〜これからもよろしくね」"}にしてください。
+3. 文末は指定のスタイルに合わせ、${mode === "keigo" ? "「〜本当にありがとうございます」「〜これからもよろしくお願いいたします」" : "「〜本当にありがとう」「〜これからもよろしくね」"}にし、必ず最後に「。」（句点）を1個つけてください。
 4. 各選択肢に、その結びにピッタリ合う「感謝や笑顔の絵文字」を1個つけてください。
       `;
     } else {
@@ -161,7 +190,7 @@ app.post("/api/generate-hints", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -212,6 +241,24 @@ app.post("/api/generate-hints", async (req, res) => {
       throw new Error("AIの言葉をうまく読み込めませんでした。もう一度ボタンをおしてみてね！");
     }
 
+    // Force trailing period "。" on each text option if missing
+    if (result && Array.isArray(result.hints)) {
+      result.hints = result.hints.map((hint: any) => {
+        if (hint && typeof hint.text === "string") {
+          let text = hint.text.trim();
+          if (text) {
+            // Remove any trailing period or spaces first, then append a single proper proper Japanese period "。"
+            while (text.endsWith(".") || text.endsWith("。")) {
+              text = text.slice(0, -1).trim();
+            }
+            text = text + "。";
+          }
+          hint.text = text;
+        }
+        return hint;
+      });
+    }
+
     return res.json(result);
   } catch (error: any) {
     console.error("Generate Hints Error:", error);
@@ -248,7 +295,7 @@ ${text}
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
     });
 
@@ -295,7 +342,7 @@ ${text}
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
     });
 
@@ -363,7 +410,7 @@ ${text}
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
     });
 
